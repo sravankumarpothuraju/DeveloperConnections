@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../../middleware/auth');
 
 const Profile = require('../../models/Profile');
+const User = require('../../models/User');
 const { check, validationResult } = require('express-validator');
 
 //@route Get api/profile/me
@@ -111,4 +112,62 @@ router.post(
     }
   },
 );
+
+//@route Get api/profile
+//@desc  Get All users profile
+//@access Public
+
+router.get('/', async (req, res) => {
+  try {
+    const profiles = await Profile.find().populate('user', ['name', 'avatar']);
+    res.json(profiles);
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+//@route Get api/profile/user/:user_id
+//@desc  Get Profile by User Id
+//@access Public
+router.get('/user/:user_id', async (req, res) => {
+  try {
+    const profile = await Profile.findOne({
+      user: req.params.user_id,
+    }).populate('user', ['name', 'avatar']);
+
+    if (!profile)
+      return res.status(400).json({ msg: 'there is no profile for this user' });
+    res.json(profile);
+  } catch (error) {
+    console.log(error.message);
+    if (error.kind == 'ObjectId') {
+      return res.status(500).json({ msg: 'profile not found' });
+    }
+
+    res.status(500).send('Server Error');
+  }
+});
+
+//@route Delete  api/profile
+//@desc  Delete profile, user and posts
+//@access Private
+
+router.delete('/', auth, async (req, res) => {
+  try {
+    // Remove user posts
+    // await Post.deleteMany({ user: req.user.id });
+    // Remove profile
+    await Profile.findOneAndRemove({ user: req.user.id });
+
+    // Remove user
+    await User.findOneAndRemove({ _id: req.user.id });
+
+    res.json({ msg: 'User deleted' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 module.exports = router;
